@@ -4,7 +4,11 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import java.io.IOException
 
 /**
@@ -17,6 +21,7 @@ class MyVpnService: VpnService() {
     }
 
     private var vpnInterface: ParcelFileDescriptor? = null
+    private var vpnJob: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISCONNECT) {
@@ -32,6 +37,11 @@ class MyVpnService: VpnService() {
             .addRoute("0.0.0.0", 0)
             .establish()
 
+        // Do background work
+        vpnJob = CoroutineScope(Dispatchers.IO).launch {
+
+        }
+
         VpnEventBus.events.tryEmit(VpnServiceEvent.Running)
         return START_STICKY
     }
@@ -45,6 +55,8 @@ class MyVpnService: VpnService() {
         try {
             vpnInterface?.close()
             vpnInterface = null
+            vpnJob?.cancel()
+            vpnJob = null
             VpnEventBus.events.tryEmit(VpnServiceEvent.NotRunning)
         } catch (e: IOException) {
             Log.e(TAG, "Error closing VPN interface", e)
